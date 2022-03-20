@@ -74,6 +74,10 @@ public class GeneticAlgorithm<T: AnyObject> {
         return (end - start) * (-pow(2, -10 * val / 1) + 1) + start
     }
 
+    public init() {
+        
+    }
+    
     // main workhorse method: build a population, select and breed parents over multiple generations, insert children into the new population if they are good enough
     private func process (_ millisecondsToProcess: Int,
                           _ adjustPopulation: AdjustPopulationmFunc<T>?,
