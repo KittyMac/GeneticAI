@@ -9,12 +9,33 @@
 import Foundation
 
 #if os(OSX) || os(iOS)
-    import Darwin
+import Darwin
 #elseif os(Linux)
-    import Glibc
+import Glibc
 #endif
 
-class GeneticAlgorithm<T> {
+@usableFromInline
+typealias AnyPtr = UnsafeMutableRawPointer?
+
+@inlinable @inline(__always)
+func Ptr <T: AnyObject>(_ obj: T) -> AnyPtr {
+    return Unmanaged.passRetained(obj).toOpaque()
+}
+
+@inlinable @inline(__always)
+func Class <T: AnyObject>(_ ptr: AnyPtr) -> T? {
+    guard let ptr = ptr else { return nil }
+    return Unmanaged<T>.fromOpaque(ptr).takeUnretainedValue()
+}
+
+@discardableResult
+@inlinable @inline(__always)
+func Release <T: AnyObject>(_ ptr: AnyPtr) -> T? {
+    guard let ptr = ptr else { return nil }
+    return Unmanaged<T>.fromOpaque(ptr).takeRetainedValue()
+}
+
+class GeneticAlgorithm<T: AnyObject> {
 
     typealias AdjustPopulationmFunc<T> = ((inout[T], inout[Float], Int, Randomable) -> Void)
     typealias GenerateOrganismFunc<T> = ((Int, Randomable) -> T)
@@ -54,7 +75,7 @@ class GeneticAlgorithm<T> {
     }
 
     // main workhorse method: build a population, select and breed parents over multiple generations, insert children into the new population if they are good enough
-    private func process (_ millisecondsToProcess: Int64,
+    private func process (_ millisecondsToProcess: Int,
                           _ adjustPopulation: AdjustPopulationmFunc<T>?,
                           _ generateOrganism: GenerateOrganismFunc<T>,
                           _ breedOrganisms: BreedOrganismsFunc<T>,
@@ -63,7 +84,11 @@ class GeneticAlgorithm<T> {
                           _ sharedOrganismIdx: Int = -1,
                           _ neighborOrganismIdx: Int = -1 ) -> T {
 
-        let prng = CRandom()
+        // Done in 3008ms and 10761140 generations
+        let prng = CRandom(UUID().uuidString)
+
+        // Done in 8011ms and 6114224 generations
+        // let prng = Xoroshiro256StarStar(UUID().uuidString)
 
         // simple counter to keep track of the number of generations (parents selected to breed a child) have passed
         var numberOfGenerations = 0
@@ -113,9 +138,8 @@ class GeneticAlgorithm<T> {
 
         // If this is the multi-threded version, put our best plan into our index in the shared organsisms array
         if sharedOrganismIdx >= 0 {
-            sharedOrganismsLock.lock()
-            sharedOrganisms[sharedOrganismIdx] = allOrganisms[localNumberOfOrganismsMinusOne]
-            sharedOrganismsLock.unlock()
+            let _: T? = Release(sharedOrganisms[sharedOrganismIdx])
+            sharedOrganisms[sharedOrganismIdx] = Ptr(allOrganisms[localNumberOfOrganismsMinusOne])
         }
 
         // used in parent selection for breeders below
@@ -164,14 +188,13 @@ class GeneticAlgorithm<T> {
                         breedOrganisms(allOrganisms[Int(a)], allOrganisms[Int(b)], newChild, prng)
                     } else if i == 3 {
                         // Breed the best organism of my neighboring thread in the ring network asexually into our population
-                        sharedOrganismsLock.lock()
-                        if neighborOrganismIdx >= sharedOrganisms.count {
-                            sharedOrganismsLock.unlock()
+                        if neighborOrganismIdx >= sharedOrganismsCount {
                            continue
                         }
-                        let neighborOrganism = sharedOrganisms[neighborOrganismIdx]
-                        sharedOrganismsLock.unlock()
-                        breedOrganisms(neighborOrganism, neighborOrganism, newChild, prng)
+                        if let neighborOrganismPtr = sharedOrganisms[neighborOrganismIdx],
+                           let neighborOrganism: T = Class(neighborOrganismPtr) {
+                            breedOrganisms(neighborOrganism, neighborOrganism, newChild, prng)
+                        }
                     }
 
                     // record the fitness value of the newly bred child
@@ -232,9 +255,8 @@ class GeneticAlgorithm<T> {
 
                                 // if we're multi-threaded, make note of this new best organism in our shared organisms array
                                 if sharedOrganismIdx >= 0 {
-                                    sharedOrganismsLock.lock()
-                                    sharedOrganisms[sharedOrganismIdx] = allOrganisms[localNumberOfOrganismsMinusOne]
-                                    sharedOrganismsLock.unlock()
+                                    let _: T? = Release(sharedOrganisms[sharedOrganismIdx])
+                                    sharedOrganisms[sharedOrganismIdx] = Ptr(allOrganisms[localNumberOfOrganismsMinusOne])
                                 }
                             }
                         }
@@ -247,8 +269,8 @@ class GeneticAlgorithm<T> {
                 // every little while, introduce new half of the population
                 if numberOfGenerations % (maxBreedingPerGeneration * 500) == 0 {
                     // Call the delegate to generate all of the organisms in the population array; score them as well
-                    if adjustPopulation != nil {
-                        adjustPopulation!(&allOrganisms, &allOrganismScores, numberOfGenerations, prng)
+                    if let adjustPopulation = adjustPopulation {
+                        adjustPopulation(&allOrganisms, &allOrganismScores, numberOfGenerations, prng)
                         for i in 0..<localNumberOfOrganismsMinusOne {
                             allOrganismScores[i] = scoreOrganism(allOrganisms[i], sharedOrganismIdx, prng)
                         }
@@ -278,7 +300,7 @@ class GeneticAlgorithm<T> {
     }
 
     // Perform the genetic algorithm on the current thread
-    public func perform(single millisecondsToProcess: Int64) -> T {
+    public func perform(single millisecondsToProcess: Int) -> T {
 
         let watchStart = DispatchTime.now()
         var masterGenerations = 0
@@ -303,10 +325,10 @@ class GeneticAlgorithm<T> {
     // one of the selection methods is to asexually breed this shared organism into the thread's population.
     // Using this scheme, each thread is able to process in a highly parallizable fashion while still incorporating
     // the best chromosomes of other threads into its population
-    private let sharedOrganismsLock = NSLock()
-    private var sharedOrganisms: [T] = []
+    private var sharedOrganisms = UnsafeMutablePointer<AnyPtr>.allocate(capacity: 0)
+    private var sharedOrganismsCount = 0
     private var sharedOrganismsDone = false
-    public func perform(many millisecondsToProcess: Int64) -> T {
+    public func perform(many millisecondsToProcess: Int) -> T? {
 
         // figure out the number of threads we want to use to create our ring network
         let numThreads = ProcessInfo.processInfo.activeProcessorCount
@@ -323,12 +345,12 @@ class GeneticAlgorithm<T> {
         var masterGenerations = 0
 
         // allocate our shared oragnisms array to allow threads to pass their best organisms along
-        sharedOrganisms = []
+        sharedOrganisms = UnsafeMutablePointer<AnyPtr>.allocate(capacity: numThreads)
+        sharedOrganismsCount = numThreads
         sharedOrganismsDone = false
 
-        let prng = CRandom()
-        for i in 0...numThreads {
-            sharedOrganisms.append(generateOrganism(i, prng))
+        for i in 0..<numThreads {
+            sharedOrganisms[i] = nil
         }
 
         let endOfProcessingLock = NSLock()
@@ -388,6 +410,6 @@ class GeneticAlgorithm<T> {
         let watchEnd = DispatchTime.now()
         print("Done in \((watchEnd.uptimeNanoseconds-watchStart.uptimeNanoseconds) / 1000000)ms and \(masterGenerations) generations\n")
 
-        return masterBestOrganism!
+        return masterBestOrganism
     }
 }

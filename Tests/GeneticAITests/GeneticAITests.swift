@@ -3,51 +3,72 @@ import Foundation
 
 @testable import GeneticAI
 
-extension String {
-    var asciiArray: [Int32] {
-        return unicodeScalars.filter{$0.isASCII}.map{Int32($0.value)}
-    }
-    
-    init (_ asciiArray : [Int32]) {
-        self.init()
-        
-        for x in asciiArray {
-            self.append(Character(UnicodeScalar(UInt32(x))!))
-        }
-    }
-}
-
 final class GeneticAITests: XCTestCase {
     
     class Organism {
-        var content : [Int32]?
+        let values: UnsafeMutableBufferPointer<Int32>
         
-        init(_ contentLength:Int) {
-            content = [Int32](repeating:0, count:contentLength)
+        deinit {
+            values.deallocate()
         }
         
+        init(capacity: Int) {
+            values = UnsafeMutableBufferPointer<Int32>.allocate(capacity: capacity)
+        }
+        
+        init(string: String) {
+            var count = 0
+            for scalar in string.unicodeScalars where scalar.isASCII {
+                count += 1
+            }
+            
+            values = UnsafeMutableBufferPointer<Int32>.allocate(capacity: count)
+            
+            var idx = 0
+            for scalar in string.unicodeScalars where scalar.isASCII {
+                values[idx] = Int32(scalar.value)
+                idx += 1
+            }
+        }
+        
+        @inlinable @inline(__always)
+        var count: Int {
+            return values.count
+        }
+        
+        @inlinable @inline(__always)
         subscript(index:Int) -> Int32 {
             get {
-                return content![index]
+                return values[index]
             }
             set(newElm) {
-                content![index] = newElm
+                values[index] = newElm
             }
+        }
+        
+        func asString() -> String {
+            var string = String()
+            for idx in 0..<values.count {
+                string.append(Character(UnicodeScalar(UInt32(values[idx]))!))
+            }
+            return string
         }
     }
     
     private func sharedTest(timeout: Int,
-                            targetString: [Int32],
-                            allCharacters: [Int32],
+                            targetString: String,
+                            allCharacters: String,
                             threaded: Bool) {
         
         let ga = GeneticAlgorithm<Organism>()
+        let allCharactersContent = Organism(string: allCharacters)
+        let targetStringContent = Organism(string: targetString)
         
         // Generate organism delegate needs to create a new organism instance and fill it with random characters
         ga.generateOrganism = { (idx, pnrg) in
-            let newChild = Organism (targetString.count)
-            for i in 0..<targetString.count {
-                newChild.content! [i] = pnrg.get(allCharacters)
+            let newChild = Organism (capacity: targetStringContent.count)
+            for i in 0..<targetStringContent.count {
+                newChild[i] = pnrg.get(allCharactersContent.values)
             }
             return newChild
         }
@@ -61,24 +82,24 @@ final class GeneticAITests: XCTestCase {
             if organismA === organismB {
                 // breed an organism with itself; this is optimized as we generally want a higher chance to singly mutate something
                 // think of this as we almost have the perfect organism, we just want to tweak one thing
-                for i in 0..<targetString.count {
+                for i in 0..<targetStringContent.count {
                     child [i] = organismA [i]
                 }
                 if prng.get() < 0.9 {
-                    child [prng.get() % targetString.count] = prng.get(allCharacters)
+                    child [prng.get() % targetStringContent.count] = prng.get(allCharactersContent.values)
                 }
                 
             } else {
                 
                 // breed two organisms, we'll do this by randomly choosing chromosomes from each parent, with the odd-ball mutation
-                for i in 0..<targetString.count {
+                for i in 0..<targetStringContent.count {
                     let t: Float = prng.get()
                     if t < 0.45 {
                         child [i] = organismA [i]
                     } else if t < 0.9 {
                         child [i] = organismB [i]
                     } else {
-                        child [i] = prng.get(allCharacters)
+                        child [i] = prng.get(allCharactersContent.values)
                     }
                 }
             }
@@ -86,11 +107,11 @@ final class GeneticAITests: XCTestCase {
         
         // Scoring an organism we calculate the distance of each string from each other and negate it (so 0 is a perfect match)
         ga.scoreOrganism = { (organism, threadIdx, prng) in
-            var score : Float = 0
-            for i in 0..<targetString.count {
-                score += Float(abs(targetString [i] - organism [i]))
+            var diff: Int32 = 0
+            for i in 0..<targetStringContent.count {
+                diff += abs(targetStringContent[i] - organism[i])
             }
-            return -score
+            return -Float(diff)
         }
         
         // Choosing organism, if we have a perfect match return true and stop genetic processing
@@ -103,47 +124,29 @@ final class GeneticAITests: XCTestCase {
         
         var finalResult : Organism? = nil
         if(threaded) {
-            finalResult = ga.perform(many: Int64(timeout))
+            finalResult = ga.perform(many: timeout)
         }else{
-            finalResult = ga.perform(single: Int64(timeout))
+            finalResult = ga.perform(single: timeout)
         }
         
+        guard let finalResult = finalResult else {
+            print("FAILURE: final result is null")
+            return
+        }
         
-        if(targetString == finalResult!.content!) {
-            print("SUCCESS: \(String(finalResult!.content!))\n")
+        let finalString = finalResult.asString()
+        
+        if(targetString == finalString) {
+            print("SUCCESS: \(finalString)\n")
         }else{
-            print("FAILURE: \(String(finalResult!.content!))\n")
+            print("FAILURE: \(finalString)\n")
         }
     }
     
     func testSingleThread0() {
         let timeout = 50
-        let targetString : [Int32] = Array("CAT".asciiArray)
-        let allCharacters : [Int32] = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZ".asciiArray)
-        
-        sharedTest(timeout: timeout,
-                   targetString: targetString,
-                   allCharacters: allCharacters,
-                   threaded: false)
-        
-    }
-    
-    func testSingleThread1() {
-        let timeout = 500
-        let targetString : [Int32] = "SUPERCALIFRAGILISTICEXPIALIDOCIOUS".asciiArray
-        let allCharacters : [Int32] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".asciiArray
-        
-        sharedTest(timeout: timeout,
-                   targetString: targetString,
-                   allCharacters: allCharacters,
-                   threaded: false)
-        
-    }
-    
-    func testSingleThread2() {
-        let timeout = 20000
-        let targetString : [Int32] = Array("Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed sodales velit et velit viverra, porta porta ligula sollicitudin. Pellentesque commodo eu nunc finibus mollis. Proin sit amet volutpat sem. Quisque sit amet auctor risus. Duis porta elit vestibulum velit gravida fermentum. Sed lacinia ornare odio, ut vestibulum lacus hendrerit vitae. Suspendisse egestas, ex ut tincidunt mattis, mauris ligula placerat nisi, vel lacinia elit ex feugiat ex. Sed urna lorem, eleifend id maximus sit amet, dictum eu nisi. Nunc consectetur libero gravida ultricies hendrerit. In volutpat mollis eros id rhoncus. Etiam sagittis dapibus neque at condimentum.".asciiArray)
-        let allCharacters : [Int32] = Array("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!#$%&\\'()*+,-./:;?@[\\\\]^_`{|}~ \\t\\n\\r\\x0b\\x0c".asciiArray)
+        let targetString = "CAT"
+        let allCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         
         sharedTest(timeout: timeout,
                    targetString: targetString,
@@ -151,6 +154,38 @@ final class GeneticAITests: XCTestCase {
                    threaded: true)
         
     }
+    
+    func testSingleThread1() {
+        let timeout = 500
+        let targetString = "SUPERCALIFRAGILISTICEXPIALIDOCIOUS"
+        let allCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        
+        sharedTest(timeout: timeout,
+                   targetString: targetString,
+                   allCharacters: allCharacters,
+                   threaded: true)
+        
+    }
+    
+    func testSingleThread2() {
+        let timeout = 50000
+        let targetString = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed sodales velit et velit viverra, porta porta ligula sollicitudin. Pellentesque commodo eu nunc finibus mollis. Proin sit amet volutpat sem. Quisque sit amet auctor risus. Duis porta elit vestibulum velit gravida fermentum. Sed lacinia ornare odio, ut vestibulum lacus hendrerit vitae. Suspendisse egestas, ex ut tincidunt mattis, mauris ligula placerat nisi, vel lacinia elit ex feugiat ex. Sed urna lorem, eleifend id maximus sit amet, dictum eu nisi. Nunc consectetur libero gravida ultricies hendrerit. In volutpat mollis eros id rhoncus. Etiam sagittis dapibus neque at condimentum."
+        let allCharacters = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!#$%&\\'()*+,-./:;?@[\\\\]^_`{|}~ \\t\\n\\r\\x0b\\x0c"
+        
+        sharedTest(timeout: timeout,
+                   targetString: targetString,
+                   allCharacters: allCharacters,
+                   threaded: true)
+        
+    }
+    
+    // singlethreaded
+    // C#: Done in 50009ms and 6,446,517 generations
+    // SWIFT: Done in 50000ms and 9,120,957 generations
+    
+    // multithreaded
+    // C#: Done in 50051ms and 249,932,020 generations
+    // SWIFT: Done in 50078ms and 294,233,080 generations
 }
 
 extension GeneticAITests {
