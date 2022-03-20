@@ -11,13 +11,11 @@ let package = Package(
         .library(name: "GeneticAI", targets: ["GeneticAI"])
     ],
     dependencies: [
-        .package(url: "https://github.com/KittyMac/Hitch.git", .upToNextMinor(from: "0.4.0")),
     ],
     targets: [
         .target(
             name: "GeneticAI",
             dependencies: [
-                "Hitch"
             ]),
         .testTarget(
             name: "GeneticAITests",

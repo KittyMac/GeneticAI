@@ -129,12 +129,7 @@ final class GeneticAITests: XCTestCase {
             finalResult = ga.perform(single: timeout)
         }
         
-        guard let finalResult = finalResult else {
-            print("FAILURE: final result is null")
-            return
-        }
-        
-        let finalString = finalResult.asString()
+        let finalString = finalResult?.asString() ?? ""
         
         if(targetString == finalString) {
             print("SUCCESS: \(finalString)\n")
@@ -143,7 +138,7 @@ final class GeneticAITests: XCTestCase {
         }
     }
     
-    func testSingleThread0() {
+    func testCAT0() {
         let timeout = 50
         let targetString = "CAT"
         let allCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -155,7 +150,7 @@ final class GeneticAITests: XCTestCase {
         
     }
     
-    func testSingleThread1() {
+    func testSUPERCALIFRAGILISTICEXPIALIDOCIOUS0() {
         let timeout = 500
         let targetString = "SUPERCALIFRAGILISTICEXPIALIDOCIOUS"
         let allCharacters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -167,7 +162,7 @@ final class GeneticAITests: XCTestCase {
         
     }
     
-    func testSingleThread2() {
+    func testLOREMIPSUM0() {
         let timeout = 50000
         let targetString = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed sodales velit et velit viverra, porta porta ligula sollicitudin. Pellentesque commodo eu nunc finibus mollis. Proin sit amet volutpat sem. Quisque sit amet auctor risus. Duis porta elit vestibulum velit gravida fermentum. Sed lacinia ornare odio, ut vestibulum lacus hendrerit vitae. Suspendisse egestas, ex ut tincidunt mattis, mauris ligula placerat nisi, vel lacinia elit ex feugiat ex. Sed urna lorem, eleifend id maximus sit amet, dictum eu nisi. Nunc consectetur libero gravida ultricies hendrerit. In volutpat mollis eros id rhoncus. Etiam sagittis dapibus neque at condimentum."
         let allCharacters = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!#$%&\\'()*+,-./:;?@[\\\\]^_`{|}~ \\t\\n\\r\\x0b\\x0c"
@@ -191,7 +186,8 @@ final class GeneticAITests: XCTestCase {
 extension GeneticAITests {
     static var allTests: [(String, (GeneticAITests) -> () throws -> Void)] {
         return [
-            ("testSingleThread0", testSingleThread0)
+            ("testCAT0", testCAT0),
+            ("testSUPERCALIFRAGILISTICEXPIALIDOCIOUS0", testSUPERCALIFRAGILISTICEXPIALIDOCIOUS0)
         ]
     }
 }

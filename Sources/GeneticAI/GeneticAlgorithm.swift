@@ -293,7 +293,7 @@ class GeneticAlgorithm<T: AnyObject> {
         }
 
         // note: for proper reporing of number of generations processed, we need to call choose organism one more time before exiting
-        chosenOrganism(allOrganisms[localNumberOfOrganismsMinusOne], allOrganismScores[localNumberOfOrganismsMinusOne], numberOfGenerations, sharedOrganismIdx, prng)
+        _ = chosenOrganism(allOrganisms[localNumberOfOrganismsMinusOne], allOrganismScores[localNumberOfOrganismsMinusOne], numberOfGenerations, sharedOrganismIdx, prng)
 
         // return the best organism we've managed to breed
         return allOrganisms[localNumberOfOrganismsMinusOne]
