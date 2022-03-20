@@ -35,13 +35,13 @@ func Release <T: AnyObject>(_ ptr: AnyPtr) -> T? {
     return Unmanaged<T>.fromOpaque(ptr).takeRetainedValue()
 }
 
-class GeneticAlgorithm<T: AnyObject> {
+public class GeneticAlgorithm<T: AnyObject> {
 
-    typealias AdjustPopulationmFunc<T> = ((inout[T], inout[Float], Int, Randomable) -> Void)
-    typealias GenerateOrganismFunc<T> = ((Int, Randomable) -> T)
-    typealias BreedOrganismsFunc<T> = ((T, T, T, Randomable) -> Void)
-    typealias ScoreOrganismFunc<T> = ((T, Int, Randomable) -> Float)
-    typealias ChosenOrganismFunc<T> = ((T, Float, Int, Int, Randomable) -> Bool)
+    public typealias AdjustPopulationmFunc<T> = ((inout[T], inout[Float], Int, Randomable) -> Void)
+    public typealias GenerateOrganismFunc<T> = ((Int, Randomable) -> T)
+    public typealias BreedOrganismsFunc<T> = ((T, T, T, Randomable) -> Void)
+    public typealias ScoreOrganismFunc<T> = ((T, Int, Randomable) -> Float)
+    public typealias ChosenOrganismFunc<T> = ((T, Float, Int, Int, Randomable) -> Bool)
 
     // population size: tweak this to your needs
     public var numberOfOrganisms = 20

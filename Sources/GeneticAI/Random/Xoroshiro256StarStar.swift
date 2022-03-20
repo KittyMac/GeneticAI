@@ -4,27 +4,32 @@
 
 import Foundation
 
-private func rotl(_ x: UInt64, _ k: UInt64) -> UInt64 {
+@usableFromInline
+func rotl(_ x: UInt64, _ k: UInt64) -> UInt64 {
     return (x << k) | (x >> (64 &- k))
 }
 
-class Xoroshiro256StarStar: Randomable {
+public class Xoroshiro256StarStar: Randomable {
+    @usableFromInline
     typealias State = (UInt64, UInt64, UInt64, UInt64)
+
+    @usableFromInline
     var state: State = (0, 0, 0, 0)
 
-    init() {
+    public init() {
         generateSeeds(seed: UInt64(NSDate().timeIntervalSinceReferenceDate))
     }
 
-    init(_ seed: UInt64) {
+    public init(_ seed: UInt64) {
         generateSeeds(seed: seed)
     }
 
-    init(_ seed: String) {
+    public init(_ seed: String) {
         generateSeeds(seed: UInt64(abs(seed.hashValue)))
     }
 
-    private func generateSeeds(seed: UInt64) {
+    @usableFromInline
+    func generateSeeds(seed: UInt64) {
         state.0 = seed &* 3216541354
         state.1 = seed &* 23215623
         state.2 = seed &* 328999
@@ -37,7 +42,7 @@ class Xoroshiro256StarStar: Randomable {
 
     @discardableResult
     @inlinable @inline(__always)
-    func next() -> UInt64 {
+    public func next() -> UInt64 {
         let result = rotl(state.1 &* 5, 7) &* 9
 
         let t = state.1 << 17

@@ -2,18 +2,19 @@
 
 import Foundation
 
-class CRandom: Randomable {
+public class CRandom: Randomable {
+    @usableFromInline
     var value: UInt64  = 55
 
-    init() {
+    public init() {
         value = UInt64(NSDate().timeIntervalSinceReferenceDate)
     }
 
-    init(_ seed: UInt64) {
+    public init(_ seed: UInt64) {
         value = seed
     }
 
-    init(_ seed: String) {
+    public init(_ seed: String) {
         value = UInt64(abs(seed.hashValue))
     }
 
