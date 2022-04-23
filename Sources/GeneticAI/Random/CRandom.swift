@@ -15,11 +15,11 @@ public class CRandom: Randomable {
     }
 
     public init(_ seed: String) {
-        value = UInt64(abs(seed.hashValue))
+        value = UInt64(seed.seedHash())
     }
 
     public func seed(_ string: String) {
-        value = UInt64(abs(string.hashValue))
+        value = UInt64(string.seedHash())
     }
 
     @discardableResult

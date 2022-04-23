@@ -25,7 +25,7 @@ public class Xoroshiro256StarStar: Randomable {
     }
 
     public init(_ seed: String) {
-        generateSeeds(seed: UInt64(abs(seed.hashValue)))
+        generateSeeds(seed: UInt64(seed.seedHash()))
     }
 
     @usableFromInline
@@ -60,7 +60,7 @@ public class Xoroshiro256StarStar: Randomable {
 
     @inlinable @inline(__always)
     public func seed(_ string: String) {
-        generateSeeds(seed: UInt64(abs(string.hashValue)))
+        generateSeeds(seed: UInt64(string.seedHash()))
     }
 
     @inlinable @inline(__always)

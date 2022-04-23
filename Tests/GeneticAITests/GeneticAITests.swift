@@ -181,6 +181,14 @@ final class GeneticAITests: XCTestCase {
     // multithreaded
     // C#: Done in 50051ms and 249,932,020 generations
     // SWIFT: Done in 50078ms and 294,233,080 generations
+    
+    func testCRANDOM() {
+        let random = CRandom("123456789")
+        
+        for _ in 0..<100 {
+            print(random.next())
+        }
+    }
 }
 
 extension GeneticAITests {
