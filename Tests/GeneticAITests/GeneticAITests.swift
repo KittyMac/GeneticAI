@@ -189,6 +189,24 @@ final class GeneticAITests: XCTestCase {
             print(random.next())
         }
     }
+    
+    func testRandomLessThanChance() {
+        let crandom = CRandom("123456789")
+        let starrandom = Xoroshiro256StarStar("123456789")
+        
+        var ccount = 0
+        var starcount = 0
+        for _ in 0..<100000 {
+            if crandom.get() < 0.5 {
+                ccount += 1
+            }
+            if starrandom.get() < 0.5 {
+                starcount += 1
+            }
+        }
+        print("CRandom: \(ccount)")
+        print("Xoroshiro256StarStar: \(starcount)")
+    }
 }
 
 extension GeneticAITests {

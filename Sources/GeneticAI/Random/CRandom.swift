@@ -5,6 +5,8 @@ import Foundation
 public class CRandom: Randomable {
     @usableFromInline
     var value: UInt64  = 55
+    @usableFromInline
+    let kMax = 32768
 
     public init() {
         value = UInt64(NSDate().timeIntervalSinceReferenceDate)
@@ -51,7 +53,7 @@ public class CRandom: Randomable {
 
     @inlinable @inline(__always)
     public func get() -> Float {
-        return Float(next()) / Float(UInt64.max)
+        return Float(next()) / Float(kMax)
     }
 
     @inlinable @inline(__always)
@@ -96,6 +98,6 @@ public class CRandom: Randomable {
 
     @inlinable @inline(__always)
     public func maybe(_ value: Float) -> Bool {
-        return (Float(next()) / Float(UInt64.max)) <= value
+        return (Float(next()) / Float(kMax)) <= value
     }
 }
