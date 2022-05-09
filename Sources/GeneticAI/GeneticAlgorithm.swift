@@ -12,6 +12,12 @@ import Foundation
 import Darwin
 #elseif os(Linux)
 import Glibc
+
+@inlinable @inline(__always)
+func autoreleasepool(_ callback: () -> ()) {
+    callback()
+}
+
 #endif
 
 @usableFromInline
@@ -89,7 +95,7 @@ public class GeneticAlgorithm<T: AnyObject> {
                           _ neighborOrganismIdx: Int = -1 ) -> T {
 
         // Done in 3008ms and 10761140 generations
-        let prng = CRandom(UUID().uuidString)
+        let prng = CRandom()
 
         // Done in 8011ms and 6114224 generations
         // let prng = Xoroshiro256StarStar(UUID().uuidString)
@@ -159,139 +165,142 @@ public class GeneticAlgorithm<T: AnyObject> {
             while finished == false &&
                 (millisecondsToProcess < 0 || ((DispatchTime.now().uptimeNanoseconds - watchStart.uptimeNanoseconds) / 1000000) < millisecondsToProcess) {
 
-                // optimization: we only call chosen organsism below when the new best organism changes
-                didFindNewBestOrganism = false
+                autoreleasepool {
+                    // optimization: we only call chosen organsism below when the new best organism changes
+                    didFindNewBestOrganism = false
 
-                // multi-threaded check to see if someone else in the ring thread network has already found the solution; if they
-                // have, we can end processing early.
-                if sharedOrganismsDone {
-                    finished = true
-                    continue
-                }
-
-                // we use three (or four) methods of parent selection for breeding; this iterates over all of those
-                for i in 0..<maxBreedingPerGeneration {
-
-                    // Below we have four different methods for selecting parents to breed. Each are explained individually
-                    if i == 0 {
-                        // Breed the pretty ones together: favor choosing two parents with good fitness values
-                        a = (easeOutExpo(0.25, 1.0, prng.get()) * localNumberOfOrganismsMinusOnef)
-                        b = (easeOutExpo(0.25, 1.0, prng.get()) * localNumberOfOrganismsMinusOnef)
-                        // a = 0
-                        // b = localNumberOfOrganismsMinusOnef
-                        breedOrganisms(allOrganisms[Int(a)], allOrganisms[Int(b)], newChild, prng)
-                    } else if i == 1 {
-                        // Breed a pretty one and an ugly one: favor one parent with a good fitness value, and another parent with a bad fitness value
-                        a = (easeInExpo(0.0, 0.5, prng.get()) * localNumberOfOrganismsMinusOnef)
-                        b = (easeOutExpo(0.5, 1.0, prng.get()) * localNumberOfOrganismsMinusOnef)
-                        breedOrganisms(allOrganisms[Int(a)], allOrganisms[Int(b)], newChild, prng)
-                    } else if i == 2 {
-                        // Breed the best organism asexually: IT IS BEST IF THE BREEDORGANISM DELEGATE CAN RECOGNIZE THIS AND FORCE A HIGHER RATE OF SINGLE CHROMOSOME MUTATION
-                        a = localNumberOfOrganismsMinusOnef
-                        b = localNumberOfOrganismsMinusOnef
-                        breedOrganisms(allOrganisms[Int(a)], allOrganisms[Int(b)], newChild, prng)
-                    } else if i == 3 {
-                        // Breed the best organism of my neighboring thread in the ring network asexually into our population
-                        if neighborOrganismIdx >= sharedOrganismsCount {
-                           continue
-                        }
-                        if let neighborOrganismPtr = sharedOrganisms[neighborOrganismIdx],
-                           let neighborOrganism: T = Class(neighborOrganismPtr) {
-                            breedOrganisms(neighborOrganism, neighborOrganism, newChild, prng)
-                        }
+                    // multi-threaded check to see if someone else in the ring thread network has already found the solution; if they
+                    // have, we can end processing early.
+                    if sharedOrganismsDone {
+                        finished = true
+                        return
                     }
 
-                    // record the fitness value of the newly bred child
-                    childScore = scoreOrganism(newChild, sharedOrganismIdx, prng)
+                    // we use three (or four) methods of parent selection for breeding; this iterates over all of those
+                    for i in 0..<maxBreedingPerGeneration {
 
-                    // if we're better than the worst member of the population, then the child should be inserted into the population
-                    if childScore > allOrganismScores[0] {
-
-                        // perform a binary search to find where we should insert this new child (we want to keep our population array sorted)
-                        var left = 0
-                        var right = localNumberOfOrganismsMinusOne
-                        var middle = 0
-                        while left < right {
-                            middle = (left + right) >> 1
-                            if allOrganismScores[middle] < childScore {
-                                left = middle + 1
-                            } else if allOrganismScores[middle] > childScore {
-                                right = middle - 1
-                            } else {
-                                left = middle - 1
-                                break
+                        // Below we have four different methods for selecting parents to breed. Each are explained individually
+                        if i == 0 {
+                            // Breed the pretty ones together: favor choosing two parents with good fitness values
+                            a = (easeOutExpo(0.25, 1.0, prng.get()) * localNumberOfOrganismsMinusOnef)
+                            b = (easeOutExpo(0.25, 1.0, prng.get()) * localNumberOfOrganismsMinusOnef)
+                            // a = 0
+                            // b = localNumberOfOrganismsMinusOnef
+                            breedOrganisms(allOrganisms[Int(a)], allOrganisms[Int(b)], newChild, prng)
+                        } else if i == 1 {
+                            // Breed a pretty one and an ugly one: favor one parent with a good fitness value, and another parent with a bad fitness value
+                            a = (easeInExpo(0.0, 0.5, prng.get()) * localNumberOfOrganismsMinusOnef)
+                            b = (easeOutExpo(0.5, 1.0, prng.get()) * localNumberOfOrganismsMinusOnef)
+                            breedOrganisms(allOrganisms[Int(a)], allOrganisms[Int(b)], newChild, prng)
+                        } else if i == 2 {
+                            // Breed the best organism asexually: IT IS BEST IF THE BREEDORGANISM DELEGATE CAN RECOGNIZE THIS AND FORCE A HIGHER RATE OF SINGLE CHROMOSOME MUTATION
+                            a = localNumberOfOrganismsMinusOnef
+                            b = localNumberOfOrganismsMinusOnef
+                            breedOrganisms(allOrganisms[Int(a)], allOrganisms[Int(b)], newChild, prng)
+                        } else if i == 3 {
+                            // Breed the best organism of my neighboring thread in the ring network asexually into our population
+                            if neighborOrganismIdx >= sharedOrganismsCount {
+                               continue
+                            }
+                            if let neighborOrganismPtr = sharedOrganisms[neighborOrganismIdx],
+                               let neighborOrganism: T = Class(neighborOrganismPtr) {
+                                breedOrganisms(neighborOrganism, neighborOrganism, newChild, prng)
                             }
                         }
 
-                        // sanity check: ensure we've got a better score than the organism we are replacing
-                        if childScore > allOrganismScores[left] {
+                        // record the fitness value of the newly bred child
+                        childScore = scoreOrganism(newChild, sharedOrganismIdx, prng)
 
-                            // when we insert a new child into the population, we "shuffle down" existing organisms to make
-                            // room for the new guy, allowing us to euthenize a worse organism while keeping the
-                            // strong organisms. as an optimization, we don't do the entire population array, instead
-                            // we do replacementWindow number of organisms
-                            let startReplacementWindow = (left - replacementWindow >= 0 ? left - replacementWindow : 0)
+                        // if we're better than the worst member of the population, then the child should be inserted into the population
+                        if childScore > allOrganismScores[0] {
 
-                            // note: we need to juggle the organism we're going to trash, as it will become our
-                            // newChild replacement object ( so we recycle organisms instead of creating new ones )
-                            trashedChild = allOrganisms[startReplacementWindow]
-
-                            // "shuffle down" our replacement window
-                            if (startReplacementWindow + 1) <= left {
-                                for j in (startReplacementWindow + 1)...left {
-                                    allOrganismScores[j - 1] = allOrganismScores[j]
-                                    allOrganisms[j - 1] = allOrganisms[j]
+                            // perform a binary search to find where we should insert this new child (we want to keep our population array sorted)
+                            var left = 0
+                            var right = localNumberOfOrganismsMinusOne
+                            var middle = 0
+                            while left < right {
+                                middle = (left + right) >> 1
+                                if allOrganismScores[middle] < childScore {
+                                    left = middle + 1
+                                } else if allOrganismScores[middle] > childScore {
+                                    right = middle - 1
+                                } else {
+                                    left = middle - 1
+                                    break
                                 }
                             }
 
-                            // insert the new child into the population
-                            allOrganisms[left] = newChild
-                            allOrganismScores[left] = childScore
+                            // sanity check: ensure we've got a better score than the organism we are replacing
+                            if childScore > allOrganismScores[left] {
 
-                            // reuse our trashed organism
-                            newChild = trashedChild
+                                // when we insert a new child into the population, we "shuffle down" existing organisms to make
+                                // room for the new guy, allowing us to euthenize a worse organism while keeping the
+                                // strong organisms. as an optimization, we don't do the entire population array, instead
+                                // we do replacementWindow number of organisms
+                                let startReplacementWindow = (left - replacementWindow >= 0 ? left - replacementWindow : 0)
 
-                            // if we have discovered a new best organism
-                            if left == localNumberOfOrganismsMinusOne {
+                                // note: we need to juggle the organism we're going to trash, as it will become our
+                                // newChild replacement object ( so we recycle organisms instead of creating new ones )
+                                trashedChild = allOrganisms[startReplacementWindow]
 
-                                // set this flag to ensure chosenOrganism() gets called
-                                didFindNewBestOrganism = true
+                                // "shuffle down" our replacement window
+                                if (startReplacementWindow + 1) <= left {
+                                    for j in (startReplacementWindow + 1)...left {
+                                        allOrganismScores[j - 1] = allOrganismScores[j]
+                                        allOrganisms[j - 1] = allOrganisms[j]
+                                    }
+                                }
 
-                                // if we're multi-threaded, make note of this new best organism in our shared organisms array
-                                if sharedOrganismIdx >= 0 {
-                                    let _: T? = Release(sharedOrganisms[sharedOrganismIdx])
-                                    sharedOrganisms[sharedOrganismIdx] = Ptr(allOrganisms[localNumberOfOrganismsMinusOne])
+                                // insert the new child into the population
+                                allOrganisms[left] = newChild
+                                allOrganismScores[left] = childScore
+
+                                // reuse our trashed organism
+                                newChild = trashedChild
+
+                                // if we have discovered a new best organism
+                                if left == localNumberOfOrganismsMinusOne {
+
+                                    // set this flag to ensure chosenOrganism() gets called
+                                    didFindNewBestOrganism = true
+
+                                    // if we're multi-threaded, make note of this new best organism in our shared organisms array
+                                    if sharedOrganismIdx >= 0 {
+                                        let _: T? = Release(sharedOrganisms[sharedOrganismIdx])
+                                        sharedOrganisms[sharedOrganismIdx] = Ptr(allOrganisms[localNumberOfOrganismsMinusOne])
+                                    }
                                 }
                             }
                         }
                     }
-                }
 
-                // update the number of generations we have now processed
-                numberOfGenerations += maxBreedingPerGeneration
+                    // update the number of generations we have now processed
+                    numberOfGenerations += maxBreedingPerGeneration
 
-                // every little while, introduce new half of the population
-                if numberOfGenerations % (maxBreedingPerGeneration * 500) == 0 {
-                    // Call the delegate to generate all of the organisms in the population array; score them as well
-                    if let adjustPopulation = adjustPopulation {
-                        adjustPopulation(&allOrganisms, &allOrganismScores, numberOfGenerations, prng)
-                        for i in 0..<localNumberOfOrganismsMinusOne {
-                            allOrganismScores[i] = scoreOrganism(allOrganisms[i], sharedOrganismIdx, prng)
+                    // every little while, introduce new half of the population
+                    if numberOfGenerations % (maxBreedingPerGeneration * 500) == 0 {
+                        // Call the delegate to generate all of the organisms in the population array; score them as well
+                        if let adjustPopulation = adjustPopulation {
+                            adjustPopulation(&allOrganisms, &allOrganismScores, numberOfGenerations, prng)
+                            for i in 0..<localNumberOfOrganismsMinusOne {
+                                allOrganismScores[i] = scoreOrganism(allOrganisms[i], sharedOrganismIdx, prng)
+                            }
                         }
+
+                        allOrganismScores[localNumberOfOrganismsMinusOne] = scoreOrganism(allOrganisms[localNumberOfOrganismsMinusOne], sharedOrganismIdx, prng)
+                        comboSort(&allOrganismScores, &allOrganisms)
+                        didFindNewBestOrganism = true
                     }
 
-                    allOrganismScores[localNumberOfOrganismsMinusOne] = scoreOrganism(allOrganisms[localNumberOfOrganismsMinusOne], sharedOrganismIdx, prng)
-                    comboSort(&allOrganismScores, &allOrganisms)
-                    didFindNewBestOrganism = true
-                }
-
-                // if we found a new best organism, check with our delegate to see if we need to continue processing or not
-                if didFindNewBestOrganism && chosenOrganism(allOrganisms[localNumberOfOrganismsMinusOne], allOrganismScores[localNumberOfOrganismsMinusOne], numberOfGenerations, sharedOrganismIdx, prng) {
-                    // if we're multi-threaded and we found the correct answer, make sure to let all of the other ring-threads know so they can stop too
-                    if sharedOrganismIdx >= 0 {
-                        sharedOrganismsDone = true
+                    // if we found a new best organism, check with our delegate to see if we need to continue processing or not
+                    if didFindNewBestOrganism && chosenOrganism(allOrganisms[localNumberOfOrganismsMinusOne], allOrganismScores[localNumberOfOrganismsMinusOne], numberOfGenerations, sharedOrganismIdx, prng) {
+                        // if we're multi-threaded and we found the correct answer, make sure to let all of the other ring-threads know so they can stop too
+                        if sharedOrganismIdx >= 0 {
+                            sharedOrganismsDone = true
+                        }
+                        finished = true
+                        return
                     }
-                    break
                 }
             }
         }
