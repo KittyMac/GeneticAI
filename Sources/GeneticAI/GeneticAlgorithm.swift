@@ -283,7 +283,7 @@ public class GeneticAlgorithm<T: AnyObject> {
 
                     // update the number of generations we have now processed
                     numberOfGenerations += maxBreedingPerGeneration
-                    didFindNewBestOrganismCount += 1
+                    didFindNewBestOrganismCount += maxBreedingPerGeneration
 
                     // every little while, introduce new half of the population
                     if numberOfGenerations % (maxBreedingPerGeneration * 500) == 0 {
@@ -358,10 +358,11 @@ public class GeneticAlgorithm<T: AnyObject> {
     private var sharedOrganisms = UnsafeMutablePointer<AnyPtr>.allocate(capacity: 0)
     private var sharedOrganismsCount = 0
     private var sharedOrganismsDone = false
-    public func perform(many millisecondsToProcess: Int) -> (T?, Int) {
+    public func perform(many millisecondsToProcess: Int,
+                        threads: Int = 0) -> (T?, Int) {
 
         // figure out the number of threads we want to use to create our ring network
-        let numThreads = ProcessInfo.processInfo.activeProcessorCount
+        let numThreads = threads > 0 ? threads : ProcessInfo.processInfo.activeProcessorCount
         if numThreads == 1 {
             return perform(single: millisecondsToProcess)
         }
