@@ -122,11 +122,15 @@ final class GeneticAITests: XCTestCase {
             return false
         }
         
+        //ga.endAfterRepeatedFailsToFindNewBestOragnism = 50000
+        
         var finalResult : Organism? = nil
         if(threaded) {
-            finalResult = ga.perform(many: timeout)
+            let (organism, generations) = ga.perform(many: timeout)
+            finalResult = organism
         }else{
-            finalResult = ga.perform(single: timeout)
+            let (organism, generations) = ga.perform(single: timeout)
+            finalResult = organism
         }
         
         let finalString = finalResult?.asString() ?? ""

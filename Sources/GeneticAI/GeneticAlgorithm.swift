@@ -51,6 +51,9 @@ public class GeneticAlgorithm<T: AnyObject> {
 
     // population size: tweak this to your needs
     public var numberOfOrganisms = 20
+    
+    // end after this many generations pass when a new best organism has not been found (-1 means never end early)
+    public var endAfterRepeatedFailsToFindNewBestOragnism = -1
 
     // an optional method that gives the callee direct access to the entire population array prior to the entire poopulation array being rescored and resorted.
     // useful if the callee wants to populate the array with specific elements
@@ -155,6 +158,7 @@ public class GeneticAlgorithm<T: AnyObject> {
         // used in parent selection for breeders below
         var a: Float = 0.0, b: Float = 0.0
         var didFindNewBestOrganism = false
+        var didFindNewBestOrganismCount = 0
 
         // Check to see if we happen to already have the answer in the starting population
         if chosenOrganism(allOrganisms[localNumberOfOrganismsMinusOne], allOrganismScores[localNumberOfOrganismsMinusOne], numberOfGenerations, sharedOrganismIdx, prng) == false {
@@ -232,7 +236,8 @@ public class GeneticAlgorithm<T: AnyObject> {
 
                             // sanity check: ensure we've got a better score than the organism we are replacing
                             if childScore > allOrganismScores[left] {
-
+                                let oldBestScore = allOrganismScores[localNumberOfOrganismsMinusOne]
+                                
                                 // when we insert a new child into the population, we "shuffle down" existing organisms to make
                                 // room for the new guy, allowing us to euthenize a worse organism while keeping the
                                 // strong organisms. as an optimization, we don't do the entire population array, instead
@@ -259,10 +264,12 @@ public class GeneticAlgorithm<T: AnyObject> {
                                 newChild = trashedChild
 
                                 // if we have discovered a new best organism
-                                if left == localNumberOfOrganismsMinusOne {
+                                
+                                if childScore > oldBestScore {
 
                                     // set this flag to ensure chosenOrganism() gets called
                                     didFindNewBestOrganism = true
+                                    didFindNewBestOrganismCount = 0
 
                                     // if we're multi-threaded, make note of this new best organism in our shared organisms array
                                     if sharedOrganismIdx >= 0 {
@@ -276,6 +283,7 @@ public class GeneticAlgorithm<T: AnyObject> {
 
                     // update the number of generations we have now processed
                     numberOfGenerations += maxBreedingPerGeneration
+                    didFindNewBestOrganismCount += 1
 
                     // every little while, introduce new half of the population
                     if numberOfGenerations % (maxBreedingPerGeneration * 500) == 0 {
@@ -301,6 +309,15 @@ public class GeneticAlgorithm<T: AnyObject> {
                         finished = true
                         return
                     }
+                    
+                    if endAfterRepeatedFailsToFindNewBestOragnism >= 0 && didFindNewBestOrganismCount > endAfterRepeatedFailsToFindNewBestOragnism {
+                        // if we're multi-threaded and we found the correct answer, make sure to let all of the other ring-threads know so they can stop too
+                        if sharedOrganismIdx >= 0 {
+                            sharedOrganismsDone = true
+                        }
+                        finished = true
+                        return
+                    }
                 }
             }
         }
@@ -313,7 +330,7 @@ public class GeneticAlgorithm<T: AnyObject> {
     }
 
     // Perform the genetic algorithm on the current thread
-    public func perform(single millisecondsToProcess: Int) -> T {
+    public func perform(single millisecondsToProcess: Int) -> (T, Int) {
 
         let watchStart = DispatchTime.now()
         var masterGenerations = 0
@@ -327,7 +344,7 @@ public class GeneticAlgorithm<T: AnyObject> {
 
         print("Done in \((watchEnd.uptimeNanoseconds-watchStart.uptimeNanoseconds) / 1000000)ms and \(masterGenerations) generations\n")
 
-        return bestOrganism
+        return (bestOrganism, masterGenerations)
     }
 
     // Perform the genetic algorithm on many threads (as many threads as we have processing cores, specifically).
@@ -341,7 +358,7 @@ public class GeneticAlgorithm<T: AnyObject> {
     private var sharedOrganisms = UnsafeMutablePointer<AnyPtr>.allocate(capacity: 0)
     private var sharedOrganismsCount = 0
     private var sharedOrganismsDone = false
-    public func perform(many millisecondsToProcess: Int) -> T? {
+    public func perform(many millisecondsToProcess: Int) -> (T?, Int) {
 
         // figure out the number of threads we want to use to create our ring network
         let numThreads = ProcessInfo.processInfo.activeProcessorCount
@@ -423,6 +440,6 @@ public class GeneticAlgorithm<T: AnyObject> {
         let watchEnd = DispatchTime.now()
         print("Done in \((watchEnd.uptimeNanoseconds-watchStart.uptimeNanoseconds) / 1000000)ms and \(masterGenerations) generations\n")
 
-        return masterBestOrganism
+        return (masterBestOrganism, masterGenerations)
     }
 }
