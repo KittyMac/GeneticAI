@@ -193,8 +193,8 @@ public class GeneticAlgorithm<T: AnyObject> {
                             breedOrganisms(allOrganisms[Int(a)], allOrganisms[Int(b)], newChild, prng)
                         } else if i == 1 {
                             // Breed a pretty one and an ugly one: favor one parent with a good fitness value, and another parent with a bad fitness value
-                            a = (easeInExpo(0.0, 0.5, prng.get()) * localNumberOfOrganismsMinusOnef)
-                            b = (easeOutExpo(0.5, 1.0, prng.get()) * localNumberOfOrganismsMinusOnef)
+                            a = (easeInExpo(0.0, 0.75, prng.get()) * localNumberOfOrganismsMinusOnef)
+                            b = (easeOutExpo(0.25, 1.0, prng.get()) * localNumberOfOrganismsMinusOnef)
                             breedOrganisms(allOrganisms[Int(a)], allOrganisms[Int(b)], newChild, prng)
                         } else if i == 2 {
                             // Breed the best organism asexually: IT IS BEST IF THE BREEDORGANISM DELEGATE CAN RECOGNIZE THIS AND FORCE A HIGHER RATE OF SINGLE CHROMOSOME MUTATION
