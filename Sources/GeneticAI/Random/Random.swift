@@ -27,8 +27,8 @@ public protocol Randomable {
     func get() -> Float
     func get(min: Float, max: Float) -> Float
 
-    func get<T>(_ set: Set<T>) -> T
-    func get<T>(_ array: [T]) -> T
+    func get<T>(_ set: Set<T>) -> T?
+    func get<T>(_ array: [T]) -> T?
     func get<T>(_ buffer: UnsafeMutableBufferPointer<T>) -> T
     func shuffled<T>(_ array: [T]) -> [T]
 

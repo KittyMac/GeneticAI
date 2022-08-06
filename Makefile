@@ -1,7 +1,6 @@
 SWIFT_BUILD_FLAGS=--configuration release
 
 build:
-	./meta/CombinedBuildPhases.sh
 	swift build -v $(SWIFT_BUILD_FLAGS)
 
 clean:
@@ -12,13 +11,6 @@ test:
 
 update:
 	swift package update
-
-xcode:
-	-killall Xcode.app
-	swift package generate-xcodeproj
-	meta/addBuildPhase GeneticAI.xcodeproj/project.pbxproj 'GeneticAI::GeneticAI' 'cd $${SRCROOT}; ./meta/CombinedBuildPhases.sh'
-	sleep 2
-	open ./GeneticAI.xcodeproj
 
 docker:
 	-DOCKER_HOST=tcp://192.168.1.209:2376 docker buildx create --name cluster --platform linux/arm64/v8 --append

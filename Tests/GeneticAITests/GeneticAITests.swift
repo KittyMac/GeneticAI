@@ -126,10 +126,10 @@ final class GeneticAITests: XCTestCase {
         
         var finalResult : Organism? = nil
         if(threaded) {
-            let (organism, generations) = ga.perform(many: timeout)
+            let (organism, _) = ga.perform(many: timeout)
             finalResult = organism
         }else{
-            let (organism, generations) = ga.perform(single: timeout)
+            let (organism, _) = ga.perform(single: timeout)
             finalResult = organism
         }
         

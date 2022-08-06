@@ -38,6 +38,7 @@ public class CRandom: Randomable {
 
     @inlinable @inline(__always)
     public func get(min: Int, max: Int) -> Int {
+        guard (max - min + 1) > 0 else { return 0 }
         return (abs(get()) % (max - min + 1)) + min
     }
 
@@ -62,12 +63,13 @@ public class CRandom: Randomable {
     }
 
     @inlinable @inline(__always)
-    public func get<T>(_ set: Set<T>) -> T {
+    public func get<T>(_ set: Set<T>) -> T? {
         return get(Array(set))
     }
 
     @inlinable @inline(__always)
-    public func get<T>(_ array: [T]) -> T {
+    public func get<T>(_ array: [T]) -> T? {
+        guard array.count > 0 else { return nil }
         return array[get(min: 0, max: array.count-1)]
     }
 
