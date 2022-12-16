@@ -359,7 +359,7 @@ public class GeneticAlgorithm<T: AnyObject> {
     private var sharedOrganismsCount = 0
     private var sharedOrganismsDone = false
     public func perform(many millisecondsToProcess: Int,
-                        threads: Int = 0) -> (T?, Int) {
+                        threads: Int = 0) -> (T, Int) {
 
         // figure out the number of threads we want to use to create our ring network
         let numThreads = threads > 0 ? threads : ProcessInfo.processInfo.activeProcessorCount
@@ -371,7 +371,7 @@ public class GeneticAlgorithm<T: AnyObject> {
 
         // when each thread ends, it will check to see if its chosen plan is better than the master plan and replace it,
         // allowing us to return the best plan conceived over all of the threads in the ring network
-        var masterBestOrganism: T?
+        var masterBestOrganism: T = generateOrganism(0, CRandom())
         var masterBestOrganismScore: Float = -Float.greatestFiniteMagnitude
         var masterGenerations = 0
 
@@ -420,7 +420,8 @@ public class GeneticAlgorithm<T: AnyObject> {
                 endOfProcessingLock.lock()
 
                 masterGenerations += maxGenerations
-                if bestOrganismScore > masterBestOrganismScore {
+                if let bestOrganism = bestOrganism,
+                   bestOrganismScore > masterBestOrganismScore {
                     masterBestOrganismScore = bestOrganismScore
                     masterBestOrganism = bestOrganism
                 }
